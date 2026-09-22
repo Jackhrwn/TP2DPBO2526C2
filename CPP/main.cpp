@@ -1,393 +1,499 @@
-#include <bits/stdc++.h>
-#include "bioskop.cpp"            
+#include <bits/stdc++.h>    // header tunggal berisi semua pustaka standar
+#include "Film.cpp"         // muat definisi class Film (level 1)
+#include "FilmBioskop.cpp"  // muat class FilmBioskop (level 2)
+#include "FilmAnimasi.cpp"  // muat class FilmAnimasi (level 3)
 
-using namespace std;    // agar tidak perlu menulis std:: berulang kali            
+using namespace std;        // pakai namespace std (tanpa prefiks std::)
 
-// Fungsi teksHijau: membungkus teks dengan warna hijau (pesan berhasil)
+// ====== Kode warna terminal ======
+#define WARNA_BIRU   "\033[34m"  // kode warna biru (border tabel)
+#define WARNA_HIJAU  "\033[32m"  // kode warna hijau (pesan sukses)
+#define WARNA_MERAH  "\033[31m"  // kode warna merah (pesan gagal)
+#define WARNA_KUNING "\033[33m"  // kode warna kuning (judul / opsi menu)
+#define WARNA_RESET  "\033[0m"   // reset warna ke default terminal
+
+// ====== Nama kolom tabel (gabungan semua atribut dari 3 class) ======
+vector<string> kolom = {                                    // header kolom tabel (gabungan semua atribut)
+    "ID", "Judul", "Harga", "Durasi", "Genre",              
+    "Sutradara", "Studio", "Teknik Animasi", "Rating Usia"  
+};
+
+// ====== Fungsi teks berwarna ======
+// teksHijau: Membungkus teks dengan warna hijau 
 string teksHijau(string teks) {
-    return string(WARNA_HIJAU) + teks + WARNA_RESET;
+    return string(WARNA_HIJAU) + teks + WARNA_RESET;  // bungkus teks warna hijau lalu reset
 }
 
-// Fungsi teksMerah: membungkus teks dengan warna merah (pesan gagal)
+// teksMerah: Membungkus teks dengan warna merah 
 string teksMerah(string teks) {
-    return string(WARNA_MERAH) + teks + WARNA_RESET;
+    return string(WARNA_MERAH) + teks + WARNA_RESET;  // bungkus teks warna merah lalu reset
 }
 
-// ====== FUNGSI TAMPILAN GARIS ======
-// Fungsi cetakGaris: mencetak satu garis border, misal +===+
+// berhenti: Mencetak pesan berhenti SEKALI lalu mengakhiri program (dipakai EOF & Ctrl+C).
+void berhenti() {
+    static bool sudahCetak = false;                   // penanda pesan sudah pernah dicetak
+    if (!sudahCetak) {                                // cegah pesan tercetak ganda (double)
+        sudahCetak = true;                            // tandai pesan sudah dicetak
+        cout << teksMerah(" Program dihentikan. ") << endl;  // kabari bahwa program berhenti
+        cout.flush();                                 // paksa pesan tampil seketika
+    }
+    exit(0);                                          // akhiri program
+}
+
+// tanganiCtrlC: Menangani Ctrl+C lewat prosedur berhenti yang sama.
+void tanganiCtrlC(int) {
+    berhenti();                                       // panggil prosedur berhenti (pesan sekali saja)
+}
+
+const int LebarKata = 35;  // lebar label prompt agar tanda titik dua selalu rata
+
+// cetakPrompt: Mencetak label prompt rata-kiri ke lebar tetap lalu tanda ':'.
+void cetakPrompt(string label) {
+    cout << label;                            // cetak label tanpa pindah baris
+    int spasi = LebarKata - (int)label.size();  // sisa ruang agar label rata kiri
+    if (spasi > 0) cout << string(spasi, ' ');    // isi sisa ruang dengan spasi
+    cout << ": ";                             // tutup label dengan tanda titik dua
+    cout.flush();                             // paksa output tampil seketika
+}
+
+// bacaTeks: Membaca teks dengan menampilkan label prompt yang sesuai.
+string bacaTeks(string label) {
+    cetakPrompt(label);                                    // tampilkan label prompt
+    string baris;                                          // penampung satu baris input
+    if (!getline(cin, baris)) {                            // EOF (Ctrl+C): tidak ada input lagi
+        berhenti();                                        // kabari program berhenti lalu akhiri
+    }
+    return baris;                                          // kembalikan teks yang dibaca
+}
+
+// inputAngka: Membaca angka dengan validasi angka dan batas minimum.
+int inputAngka(string label, int minimum, string pesanKurang) {
+    while (true) {
+        cetakPrompt(label);                                       // tampilkan label prompt
+        string baris;                                             // penampung satu baris input
+        if (!getline(cin, baris)) {                               // EOF (Ctrl+C): tidak ada input lagi
+            berhenti();                                           // kabari program berhenti lalu akhiri
+        }
+
+        bool   valid = !baris.empty();                            // tandai input valid (tidak kosong)
+        size_t mulai = 0;                                         // posisi digit pertama (lewati tanda +/-)
+        if (valid && (baris[0] == '-' || baris[0] == '+')) {      // ada tanda bilangan di depan?
+            mulai = 1;                                            // lewati karakter tanda
+            if (mulai >= baris.size()) valid = false;             // hanya tanda tanpa digit: tidak valid
+        }
+        for (size_t i = mulai; valid && i < baris.size(); i++) {  // telusuri semua karakter sisa
+            if (!isdigit((unsigned char)baris[i])) {              // ada karakter non-angka?
+                valid = false;                                    // tandai input tidak valid
+            }
+        }
+        if (!valid) {                                             // format salah -> minta ulang
+        // pesan merah: input harus angka
+            cout << teksMerah("Input harus berupa angka! Silakan coba lagi.") << endl << endl;  // pesan: harus angka
+            continue;                                             // ulangi iterasi meminta input
+        }
+
+        int angka = 0;                                            // hasil konversi string ke angka
+        for (size_t i = mulai; i < baris.size(); i++) {           // telusuri digit dari posisi paling kiri
+            angka = angka * 10 + (baris[i] - '0');                // tumpuk digit (puluhan, ratusan, dst)
+        }
+        if (baris[0] == '-') angka = -angka;                      // terapkan tanda negatif
+
+        if (angka < minimum) {                                    // cek batas nilai minimum
+            cout << teksMerah(pesanKurang) << endl << endl;       // minta ulang dengan pesan batas
+            continue;                                             // ulangi iterasi meminta input
+        }
+        return angka;                                             // input valid: kembalikan nilainya
+    }
+}
+
+// bacaId: Membaca ID film dengan validasi format dan keunikan ID.
+int bacaId(vector<Film>& biasa, vector<FilmBioskop>& bioskop, vector<FilmAnimasi>& animasi) {
+    while (true) {
+        cetakPrompt("ID film (angka)");                            // tampilkan label prompt ID
+        string baris;                                              // penampung satu baris input
+        if (!getline(cin, baris)) {                                // EOF (Ctrl+C): tidak ada input lagi
+            berhenti();                                            // kabari program berhenti lalu akhiri
+        }
+
+        bool   valid = !baris.empty();                             // tandai input valid (tidak kosong)
+        size_t mulai = 0;                                          // posisi digit pertama (lewati tanda +/-)
+        if (valid && (baris[0] == '-' || baris[0] == '+')) {       // ada tanda bilangan di depan?
+            mulai = 1;                                             // lewati karakter tanda
+            if (mulai >= baris.size()) valid = false;              // hanya tanda tanpa digit: tidak valid
+        }
+        for (size_t i = mulai; valid && i < baris.size(); i++) {   // telusuri semua karakter sisa
+            if (!isdigit((unsigned char)baris[i])) valid = false;  // karakter non-angka: tidak valid
+        }
+
+        int id = 0;                                                // hasil konversi string
+        if (valid) {                                               // konversi hanya bila format benar
+            try {
+                id = stoi(baris);                                  // ubah string menjadi int
+            } catch (const exception&) {                           // angka melebihi jangkauan int
+                valid = false;                                     // tandai tidak valid
+            }
+        }
+        if (!valid) {                                              // format salah -> minta ulang
+        // pesan merah: input harus berupa angka
+            cout << teksMerah("Input harus berupa angka! Silakan coba lagi.") << endl << endl;  // pesan: harus angka
+            continue;                                              // ulangi iterasi meminta input
+        }
+
+        if (id < 0) {                                              // ID negatif ditolak
+        // pesan merah: ID tidak boleh negatif
+            cout << teksMerah("ID tidak boleh negatif!") << endl << endl;  // pesan: ID negatif ditolak
+            continue;                                              // ulangi iterasi meminta input
+        }
+        if (id == 0) {                                             // ID nol ditolak
+        // pesan merah: ID harus mulai dari angka 1
+            cout << teksMerah("ID harus angka mulai dari 1!") << endl << endl;  // pesan: ID nol ditolak
+            continue;                                              // ulangi iterasi meminta input
+        }
+
+        bool dipakai = false;                                      // penanda ID sudah terpakai
+        for (Film& o : biasa) {                                    // telusuri semua film biasa
+            if (o.getId() == id) dipakai = true;                   // cocok dengan film lain?
+        }
+        if (!dipakai) {                                            // belum dipakai di film biasa?
+            for (FilmBioskop& o : bioskop) {                       // telusuri semua film bioskop
+                if (o.getId() == id) dipakai = true;               // cocok dengan film lain?
+            }
+        }
+        if (!dipakai) {                                            // belum dipakai juga di film bioskop?
+            for (FilmAnimasi& o : animasi) {                       // telusuri semua film animasi
+                if (o.getId() == id) dipakai = true;               // cocok dengan film lain?
+            }
+        }
+        if (dipakai) {                                             // ID duplikat tidak diizinkan
+        // pesan merah: ID harus unik
+            cout << teksMerah("ID sudah dipakai! Gunakan ID lain.") << endl << endl;  // pesan: ID duplikat
+            continue;                                              // ulangi iterasi meminta input
+        }
+        return id;                                                 // ID valid dan unik, kembalikan nilainya
+    }
+}
+
+// cetakGaris: Mencetak satu garis kotak dengan karakter pengisi.
 void cetakGaris(string kiri, string tengah, string kanan, int panjang) {
-    cout << kiri;                                   // cetak karakter kiri
-    for (int i = 0; i < panjang; i++) {             // ulangi sampai panjang
-        cout << tengah;                             // cetak karakter tengah
-    }
-    cout << kanan << endl;                          // cetak karakter kanan
+    cout << WARNA_BIRU << kiri << string(panjang, tengah[0]) << kanan << WARNA_RESET << endl;  // gambar satu garis kotak (kiri, pengisi, kanan)
 }
 
-// Fungsi cetakBaris: mencetak satu baris isi dengan border kiri kanan
-void cetakBaris(string isi, int panjang) {
-    cout << WARNA_BIRU << "|" << WARNA_RESET;           // border kiri (biru)
-    cout << WARNA_KUNING << isi << WARNA_RESET;         // isi (kuning)
-    for (int i = (int)isi.size(); i < panjang; i++) {   // rapikan dengan spasi
-        cout << " ";                                    // spasi penggenap
-    }
-    cout << WARNA_BIRU << "|" << WARNA_RESET << endl;   // border kanan (biru)
-}
-
-// Fungsi cetakJudul: mencetak judul di tengah kotak dengan border
+// cetakJudul: Mencetak judul di tengah kotak dengan padding seimbang.
 void cetakJudul(string judul, int panjang) {
-    int kiri = (panjang - (int)judul.size()) / 2;       // hitung jarak spasi kiri
-    cout << WARNA_BIRU << "|" << WARNA_RESET;           // border kiri (biru)
-    cout << WARNA_KUNING;                               // judul (kuning)
-    for (int i = 0; i < kiri; i++) {                    // spasi kiri
-        cout << " ";
-    }
-    cout << judul;                                      // cetak judul
-    for (int i = kiri + (int)judul.size(); i < panjang; i++) {  // spasi kanan
-        cout << " ";
-    }
-    cout << WARNA_RESET;
-    cout << WARNA_BIRU << "|" << WARNA_RESET << endl;   // border kanan (biru)
+    int kiri = (panjang - (int)judul.size()) / 2;      // spasi kiri agar judul di tengah
+    cout << WARNA_BIRU << "|" << WARNA_RESET;          // border kiri kotak
+    // judul kuning di tengah, kanan diisi spasi
+    cout << WARNA_KUNING << string(kiri, ' ') << judul
+         << string(panjang - kiri - (int)judul.size(), ' ') << WARNA_RESET;
+    cout << WARNA_BIRU << "|" << WARNA_RESET << endl;  // border kanan + pindah baris
 }
 
-// Fungsi cekIdValid: memeriksa apakah id berupa angka mulai dari 1 (1, 2, 3, ...)
-bool cekIdValid(int id) {
-    return id >= 1;                                       // valid jika id lebih besar atau sama dengan 1
+// cetakBaris: Mencetak satu baris isi kotak dengan border kiri-kanan.
+void cetakBaris(string isi, int panjang, string warna = WARNA_RESET) {
+    cout << WARNA_BIRU << "|" << WARNA_RESET << " ";                  // batas kiri + spasi awal isi
+    if (!warna.empty() && warna != WARNA_RESET) cout << warna;        // aktifkan warna teks
+    cout << isi;                                                      // cetak teks isi
+    if (!warna.empty() && warna != WARNA_RESET) cout << WARNA_RESET;  // matikan warna kembali
+    cout << string(max(0, panjang - 1 - (int)isi.size()), ' ')        // spasi pengisi sisa lebar
+         << WARNA_BIRU << "|" << WARNA_RESET << endl;
 }
 
-// Fungsi cekIdAda: memeriksa apakah sebuah id sudah ada di dalam daftar
-bool cekIdAda(vector<Film>& daftar, int id) {
-    bool ketemu = false;                                  // penanda hasil pencarian
-    for (int i = 0; i < daftar.size(); i++) {             // ulangi semua elemen daftar
-        if (daftar[i].getId() == id) {                    // jika id elemen sama dengan id cari
-            ketemu = true;                                // tandai ketemu (tanpa break)
+// cetakKotakPilihan: Mencetak kotak berisi daftar pilihan "[n] ..." (kuning).
+void cetakKotakPilihan(string caption, vector<string> opsiBaris) {
+    int panjang = 2;                                  // lebar awal kotak
+    for (string isi : opsiBaris) {                    // cari lebar opsi terpanjang
+        panjang = max(panjang, 1 + (int)isi.size());  // perlebar jika opsi lebih panjang
+    }
+    panjang += 2;                                     // sedikit ruang ekstra
+    cout << caption << endl;                          // caption di atas kotak
+    cetakGaris("+", "-", "+", panjang);               // garis atas kotak
+    // cetak tiap opsi dengan warna kuning
+    for (string isi : opsiBaris) cetakBaris(isi, panjang, WARNA_KUNING);
+    cetakGaris("+", "-", "+", panjang);               // garis bawah kotak
+    cout << endl;                                     // spasi setelah kotak
+}
+
+// ===== tabel kolom dinamis =====
+// cetakGarisTabel: Mencetak garis pemisah tabel dengan lebar kolom dinamis.
+void cetakGarisTabel(vector<int>& lebar) {
+    cout << WARNA_BIRU << "+";              // ujung kiri garis
+    for (int w : lebar) {                   // telusuri tiap kolom
+        cout << string(w + 2, '-') << "+";  // ruas garis tiap kolom + pemisah
+    }
+    cout << WARNA_RESET << endl;            // reset warna + pindah baris
+}
+
+// cetakBannerTabel: Mencetak judul menyatu dengan tabel (lebarnya selebar grid kolom).
+void cetakBannerTabel(string judul, vector<int>& lebar) {
+    int total = 1;                         // total lebar satu garis tabel
+    for (int w : lebar) total += w + 3;    // jumlahkan lebar tiap kolom + 3
+    cetakGaris("+", "=", "+", total - 2);  // batas atas banner (selebar tabel)
+    cetakJudul(judul, total - 2);          // judul kuning di tengah, selebar tabel
+    cetakGaris("+", "=", "+", total - 2);  // pemisah judul vs tabel (gaya TAMBAH)
+    cetakGarisTabel(lebar);                // grid atas kolom tabel
+}
+
+// cetakBarisTabel: Mencetak satu baris tabel dengan sel sesuai lebar kolom.
+void cetakBarisTabel(vector<string> isi, vector<int>& lebar, bool judulKolom) {
+    cout << WARNA_BIRU << "|" << WARNA_RESET;                      // batas awal baris (biru)
+    for (size_t i = 0; i < isi.size(); i++) {                      // telusuri semua sel
+        string teks = isi[i];                                      // isi sel saat ini
+        // pad kanan agar selebar kolom
+        if ((int)teks.size() < lebar[i]) teks.append(lebar[i] - (int)teks.size(), ' ');
+        if (judulKolom) teks = WARNA_KUNING + teks + WARNA_RESET;  // judul kolom diberi warna kuning
+        cout << " " << teks << " ";                                // sel dibungkus spasi kiri-kanan
+        cout << WARNA_BIRU << "|" << WARNA_RESET;                  // sisi "|" berwarna biru
+    }
+    cout << endl;                                                  // pindah baris
+}
+
+// cetakKotakJudulOpsi: Mencetak kotak gabungan judul dan daftar opsi.
+void cetakKotakJudulOpsi(string judul, vector<string> opsiBaris) {
+    int panjang = max(40, (int)judul.size() + 4);     // lebar minimal 40 atau selebar judul
+    for (string isi : opsiBaris) {                    // cari lebar opsi terpanjang
+        panjang = max(panjang, (int)isi.size() + 4);  // perlebar jika opsi lebih panjang
+    }
+    cetakGaris("+", "=", "+", panjang);               // garis atas kotak
+    cetakJudul(judul, panjang);                       // judul di tengah
+    cetakGaris("+", "=", "+", panjang);               // pemisah judul dan opsi
+    // cetak tiap opsi dengan warna kuning
+    for (string isi : opsiBaris) cetakBaris(isi, panjang, WARNA_KUNING);
+    cetakGaris("+", "=", "+", panjang);               // garis bawah kotak
+    cout << endl;                                     // spasi setelah kotak
+}
+
+// tampilkanTabel: Menampilkan seluruh data film dari 3 wadah berjenis dalam satu tabel dinamis.
+void tampilkanTabel(string judul, vector<Film>& biasa,vector<FilmBioskop>& bioskop, vector<FilmAnimasi>& animasi) {
+    size_t jumlah = biasa.size() + bioskop.size() + animasi.size();  // jumlah seluruh film
+    if (jumlah == 0) {                                               // belum ada data sama sekali?
+        cout << "Belum ada data film." << endl;                      // kabari bahwa data kosong
+        return;                                                      // langsung keluar dari fungsi
+    }
+
+    // karena tiap kelas tinggal di wadah berjenisnya sendiri (tanpa virtual),
+    // seluruh data diratakan dulu jadi pasangan (id, baris) supaya bisa diurutkan bersama
+    vector<pair<int, vector<string>>> urut;                    // penampung (id, baris) untuk diurutkan
+    for (Film& o : biasa)                                      // telusuri wadah film biasa
+        urut.push_back({o.getId(), o.getData()});              // ambil id + baris data film biasa
+    for (FilmBioskop& o : bioskop)                             // telusuri wadah film bioskop
+        urut.push_back({o.getId(), o.getData()});              // ambil id + baris data film bioskop
+    for (FilmAnimasi& o : animasi)                             // telusuri wadah film animasi
+        urut.push_back({o.getId(), o.getData()});              // ambil id + baris data film animasi
+
+    // urutkan pasangan (id, baris) berdasarkan ID menaik memakai std::sort 
+    sort(urut.begin(), urut.end(),                             // urutkan seluruh pasangan yang dikumpulkan
+         [](const auto& a, const auto& b) { return a.first < b.first; });  // a lebih dulu bila ID-nya lebih kecil
+
+    // siapkan baris-baris tabel: isi kolom milik class-nya, sisanya "-"
+    vector<vector<string>> barisData;                          // penampung baris-baris tabel
+    for (auto& pasangan : urut) {                              // telusuri pasangan yang sudah urut
+        vector<string> data = pasangan.second;                 // baris data milik objek
+        while ((int)data.size() < (int)kolom.size()) data.push_back("-");  // pad kolom kosong dengan "-"
+        barisData.push_back(data);                             // simpan baris ke daftar
+    }
+
+    // hitung lebar tiap kolom = teks terpanjang antara header dan isi
+    vector<int> lebar(kolom.size());                           // penampung lebar tiap kolom
+    for (size_t i = 0; i < kolom.size(); i++) {                // telusuri tiap kolom
+        lebar[i] = (int)kolom[i].size();                       // awali dari lebar nama kolom
+        for (auto& baris : barisData) {                        // cari isi terpanjang di kolom itu
+        // perlebar jika isi lebih panjang
+            if ((int)baris[i].size() > lebar[i]) lebar[i] = (int)baris[i].size();  // perlebar jika isi sel lebih panjang
         }
     }
-    return ketemu;                                        // kembalikan hasil
+
+    // ===== cetak tabel =====
+    cout << endl;                                              // spasi sebelum tabel
+    cetakBannerTabel(judul, lebar);                            // judul + batas atas tabel
+    cetakBarisTabel(kolom, lebar, true);                       // baris judul kolom (kuning)
+    cetakGarisTabel(lebar);                                    // pemisah judul dan isi
+    // cetak satu baris per data
+    for (auto& baris : barisData) cetakBarisTabel(baris, lebar, false);  // cetak tiap baris data (tanpa warna)
+    cetakGarisTabel(lebar);                                    // garis bawah tabel
+    // jumlah data total (hijau)
+    cout << WARNA_HIJAU << "Total data : " << jumlah << WARNA_RESET << endl;  // jumlah seluruh film (hijau)
+    cout << endl;                                              // spasi setelah tabel
 }
 
-// Fungsi inputAngka: membaca angka dari keyboard dengan ERROR HANDLING
-// (program tidak akan crash jika user mengetik huruf/string)
-int inputAngka(string pesan) {
-    while (true) {                                        // ulangi terus sampai input valid
-        cout << pesan;                                    // tampilkan prompt (seperti input(pesan) di Python)
-        string input;                                     // variabel teks input mentah
-        getline(cin, input);                              // baca satu baris penuh (seperti input() di Python)
-        bool valid = !input.empty();                      // asumsikan valid jika tidak kosong
-        for (size_t i = 0; i < input.size(); i++) {       // periksa tiap karakter
-            if (!isdigit((unsigned char)input[i])) {      // jika ada karakter bukan angka
-                valid = false;                            // baris ini bukan angka
-                break;                                    // hentikan pemeriksaan
+// pilihTeknik: Memilih teknik animasi dari daftar opsi yang tersedia.
+string pilihTeknik() {
+    vector<string> opsi = {"2D", "3D", "Stop Motion", "CGI", "Motion Capture",
+                           "Animatronik", "GoMotion", "Cut Out", "Rotoscope",
+                           "Plastinasi", "Pixilasi", "Grafik Gerak"};
+    vector<string> barisOpsi;                   // daftar baris untuk kotak
+    for (size_t i = 0; i < opsi.size(); i++) {  // susun tiap teknik jadi baris
+        // isi label "[nomor] nama teknik"
+        barisOpsi.push_back("  [" + to_string(i + 1) + "] " + opsi[i]);
+    }
+    // tampilkan kotak pilihan teknik
+    cetakKotakPilihan("Pilih teknik animasi yang tersedia:", barisOpsi);
+
+    int pilihan;                                // penampung nomor pilihan
+    do {                                        // minta ulang sampai pilihan valid
+        // minta nomor pilihan dalam rentang 1..n
+        pilihan = inputAngka("Pilih teknik animasi (1-" + to_string(opsi.size()) + ")",
+                             1, "Pilihan harus 1-" + to_string(opsi.size()) + "!");
+        if ((int)pilihan > (int)opsi.size()) {  // nomor di luar daftar?
+        // pesan merah: pilihan tidak valid
+            cout << teksMerah("Pilihan harus 1-" + to_string(opsi.size()) + "!") << endl << endl;  // pesan: pilihan tidak valid
+        }
+    } while ((int)pilihan > (int)opsi.size());  // ulangi selama di luar daftar
+    switch (pilihan) {                          // petakan nomor pilihan ke teknik
+        case 1:  return "2D";             // 1 = teknik 2D
+        case 2:  return "3D";             // 2 = teknik 3D
+        case 3:  return "Stop Motion";    // 3 = stop motion
+        case 4:  return "CGI";            // 4 = CGI
+        case 5:  return "Motion Capture"; // 5 = motion capture
+        case 6:  return "Animatronik";    // 6 = animatronik
+        case 7:  return "GoMotion";       // 7 = go motion
+        case 8:  return "Cut Out";        // 8 = cut out
+        case 9:  return "Rotoscope";      // 9 = rotoscope
+        case 10: return "Plastinasi";     // 10 = plastinasi
+        case 11: return "Pixilasi";       // 11 = pixilasi
+        case 12: return "Grafik Gerak";   // 12 = grafik gerak
+    }
+    return "";                            // tidak akan tercapai (pilihan sudah divalidasi)
+}
+
+// pilihRating: Memilih rating usia penonton dari daftar opsi yang tersedia.
+string pilihRating() {
+    // daftar rating usia penonton
+    vector<string> opsi = {"SU", "13+", "17+", "21+"};
+    vector<string> barisOpsi;                   // daftar baris untuk kotak
+    for (size_t i = 0; i < opsi.size(); i++) {  // susun tiap rating jadi baris
+        // isi label "[nomor] nama rating"
+        barisOpsi.push_back("  [" + to_string(i + 1) + "] " + opsi[i]);
+    }
+    // tampilkan kotak pilihan rating
+    cetakKotakPilihan("Pilih rating usia penonton yang tersedia:", barisOpsi);
+
+    int pilihan;                                // penampung nomor pilihan
+    do {                                        // minta ulang sampai pilihan valid
+        // minta nomor pilihan dalam rentang 1..n
+        pilihan = inputAngka("Pilih rating usia (1-" + to_string(opsi.size()) + ")",
+                             1, "Pilihan harus 1-" + to_string(opsi.size()) + "!");
+        if ((int)pilihan > (int)opsi.size()) {  // nomor di luar daftar?
+        // pesan merah: pilihan tidak valid
+            cout << teksMerah("Pilihan harus 1-" + to_string(opsi.size()) + "!") << endl << endl;  // pesan: pilihan tidak valid
+        }
+    } while ((int)pilihan > (int)opsi.size());  // ulangi selama di luar daftar
+    switch (pilihan) {                // petakan nomor pilihan ke rating
+        case 1:  return "SU";         // 1 = SU (semua umur)
+        case 2:  return "13+";        // 2 = 13+
+        case 3:  return "17+";        // 3 = 17+
+        case 4:  return "21+";        // 4 = 21+
+    }
+    return "";                        // tidak akan tercapai (pilihan sudah divalidasi)
+}
+
+// bacaGenre: Membaca daftar genre dengan validasi huruf awal besar.
+vector<string> bacaGenre() {
+    int jumlah = inputAngka("Jumlah genre (lebih dari 0)", 1,         // tanya jumlah genre
+                            "Input harus lebih dari 0!");
+    vector<string> genre;                                             // penampung daftar genre
+    for (int i = 1; i <= jumlah; i++) {                               // telusuri tiap nomor genre
+        bool validGenre = false;                                      // tandai genre belum valid
+        while (!validGenre) {                                         // minta ulang sampai valid
+            // baca satu genre dengan label nomor urut
+            string g = bacaTeks("Genre ke-" + to_string(i) + " (awali huruf besar)");
+            validGenre = !g.empty() && isupper((unsigned char)g[0]);  // valid jika non-kosong & huruf besar
+            if (validGenre) {                                         // genre benar?
+                genre.push_back(g);                                   // simpan genre
+            } else {                                                  // genre salah format
+                // pesan merah: awali dengan huruf besar
+                cout << teksMerah("Huruf awal genre harus huruf besar!") << endl << endl;  // pesan: huruf awal harus besar
             }
         }
-        if (valid) {                                      // jika seluruh baris adalah angka
-            int angka = 0;                                // hasil ubah teks menjadi bilangan bulat
-            for (size_t i = 0; i < input.size(); i++) {   // susun angka dari tiap digit
-                angka = angka * 10 + (input[i] - '0');
-            }
-            return angka;                                 // kembalikan angka yang valid
-        }
-        // pesan error lalu ulangi minta input (sama seperti Python)
-        cout << teksMerah("Input harus berupa angka! Silakan coba lagi.\n\n");
     }
+    return genre;                                                     // kembalikan daftar genre
 }
 
-// Fungsi tambahData: menambahkan objek Film baru ke dalam daftar lalu simpan ke file
-void tambahData(vector<Film>& daftar) {
-    string judul;                                         // variabel untuk judul
-    vector<string> genre;                                 // list genre (bisa lebih dari satu)
-    int id;                                               // variabel untuk id (angka mulai dari 1)
-    int harga;                                            // variabel untuk data harga
-    int durasi;                                           // variabel untuk data durasi
+// tambahData: Menerima input user untuk menambahkan satu objek film.
+void tambahData(vector<Film>& biasa, vector<FilmBioskop>& bioskop, vector<FilmAnimasi>& animasi) {
+    cetakKotakJudulOpsi("TAMBAH DATA FILM",                           // menu pilih tipe film
+                        {"  [1] Film biasa   (butuh id, judul, harga)",
+                         "  [2] Film bioskop (butuh durasi, genre, sutradara)",
+                         "  [3] Film animasi (butuh studio, teknik animasi, rating)"});
 
-    while (true) {                                        // ulangi sampai id valid
-        id = inputAngka("Masukkan ID      : ");           // baca id (angka) dengan error handling
-        if (cekIdValid(id)) {                             // jika id valid (mulai dari 1)
-            break;                                        // lanjut ke langkah berikutnya
+    int tipe;                                                         // penampung pilihan tipe
+    do {                                                              // minta ulang sampai tipe valid
+        // tanya tipe (1 biasa, 2 bioskop, 3 animasi)
+        tipe = inputAngka("Pilih tipe film (1/2/3)", 1, "Tipe harus 1, 2, atau 3!");
+        if (tipe > 3) {                                               // tipe di luar 1..3?
+            // pesan merah: tipe tidak valid
+            cout << teksMerah("Tipe harus 1, 2, atau 3!") << endl << endl;  // pesan: tipe tidak valid
         }
-        cout << teksMerah("ID harus berupa angka mulai dari 1 (1, 2, 3, ...)!\n") << endl; // pesan error
-    }
-    if (cekIdAda(daftar, id)) {                           // jika id sudah dipakai
-        cout << teksMerah("ID sudah digunakan!") << endl; // beri tahu user
-        return;                                           // kembali ke menu utama
-    }
-    cout << "Masukkan Judul   : ";                        // minta input judul
-    getline(cin, judul);                                  // baca judul (boleh spasi)
-    int jumlahGenre;                                      // banyaknya genre yang ingin dimasukkan
-    while (true) {                                        // ulangi sampai jumlah benar
-        jumlahGenre = inputAngka("Jumlah Genre     : ");  // minta jumlah genre
-        if (jumlahGenre >= 1) break;                      // jumlah benar (mulai dari 1)
-        cout << teksMerah("Jumlah genre harus angka mulai dari 1!\n") << endl; // pesan error
-    }
-    genre.clear();                                        // kosongkan list sebelum mengisi
-    for (int i = 0; i < jumlahGenre; i++) {               // minta genre satu per satu
-        while (true) {                                    // ulangi sampai genre ini valid
-            cout << "Genre ke-" << (i + 1) << "       : ";// minta genre ke-i
-            string g;                                     // variabel genre tunggal
-            getline(cin, g);                              // baca genre (boleh spasi)
-            if (!g.empty() && isupper((unsigned char)g[0])) {  // jika awal huruf besar
-                genre.push_back(g);                       // simpan genre
-                break;                                    // lanjut ke genre berikutnya
-            }
-            cout << teksMerah("Genre harus diawali dengan huruf besar (contoh: Action)!\n") << endl; // pesan error
-        }
-    }
-    harga = inputAngka("Harga Tiket      : ");            // baca harga dengan error handling
-    durasi = inputAngka("Durasi (menit)   : ");           // baca durasi dengan error handling
+    } while (tipe > 3);                                               // ulangi selama tipe di luar 1..3
 
-    Film baru(id, judul, genre, harga, durasi);           // buat objek Film baru
-    daftar.push_back(baru);                               // simpan objek ke dalam vector
-    cout << teksHijau("Data berhasil ditambahkan!") << endl;         // konfirmasi sukses
-}
+    // kolom milik class Film (selalu ada)
+    int    id    = bacaId(biasa, bioskop, animasi);                       // baca ID yang unik
+    string judul = bacaTeks("Judul film");                            // baca judul film
+    // baca harga tiket (tidak boleh negatif)
+    int    harga = inputAngka("Harga tiket", 0, "Harga tidak boleh negatif!");
 
-// Fungsi cetakJudulBaris: mencetak judul bagian dalam kotak (misal DAFTAR FILM)
-void cetakJudulBaris(string judul) {
-    int panjang = 42;                                     // lebar kotak judul
-    cout << WARNA_BIRU;                                   // border atas (biru)
-    cetakGaris("+", "=", "+", panjang);
-    cout << WARNA_KUNING;                                 // judul di tengah (kuning)
-    cetakJudul(judul, panjang);
-    cout << WARNA_BIRU;                                   // border bawah (biru)
-    cetakGaris("+", "=", "+", panjang);
-    cout << WARNA_RESET;                                  // reset warna
-    cout << endl;                                         // baris kosong
-}
+    if (tipe == 1) {                                                  // tipe 1: hanya data dasar Film
+        // Film            : <id> <judul> <harga>
+        biasa.push_back(Film(id, judul, harga));                  // simpan objek Film ke wadah berjenis
+    } else {                                                          // tipe 2/3: pakai atribut bioskop
+        // kolom milik class FilmBioskop
+        // baca durasi film dalam menit
+        int            durasi     = inputAngka("Durasi film (menit)", 0, "Durasi tidak boleh negatif!");
+        vector<string> genre      = bacaGenre();                      // baca daftar genre
+        string         sutradara  = bacaTeks("Nama sutradara");       // baca nama sutradara
 
-// Fungsi tampilkanData: menampilkan semua objek Film dalam daftar
-void tampilkanData(vector<Film>& daftar) {
-    if (daftar.empty()) {                                 // jika daftar masih kosong
-        cout << "Belum ada data film." << endl;           // tampilkan pesan kosong
-        return;                                           // hentikan proses
-    }
-    cout << endl;                                         // cetak baris kosong
-    cetakJudulBaris("DAFTAR FILM");                       // judul daftar dengan kotak
-    // urutkan daftar berdasarkan id (ascending) sebelum ditampilkan
-    sort(daftar.begin(), daftar.end(), [](Film& a, Film& b) { return a.getId() < b.getId(); });
-    for (int i = 0; i < daftar.size(); i++) {             // ulangi semua elemen daftar
-        cout << WARNA_KUNING << "Film ke-" << (i + 1) << ":" << WARNA_RESET << endl;     // nomor urut film (kuning)
-        daftar[i].tampilkan();                            // panggil method tampilkan
-    }
-}
+        if (tipe == 2) {                                              // tipe 2: cukup sampai kelas bioskop
+            // FilmBioskop   : <id> <judul> <harga> <durasi> <genre...> <sutradara>
+            // simpan objek FilmBioskop ke wadah berjenis
+            bioskop.push_back(FilmBioskop(id, judul, harga, durasi, genre, sutradara));  // kirim objek ke wadah bioskop
+        } else {                                                      // tipe 3: lanjut atribut animasi
+            // kolom milik class FilmAnimasi
+            string studio      = bacaTeks("Studio animasi");          // baca studio pembuat
+            string teknik      = pilihTeknik();                       // pilih teknik animasi
+            string ratingUsia  = pilihRating();                       // pilih rating usia
 
-// Fungsi tampilkanMenuUpdate: menampilkan submenu pilihan kolom yang akan diupdate
-void tampilkanMenuUpdate() {
-    cout << WARNA_BIRU;                                   // border atas submenu (biru)        
-    cetakGaris("+", "=", "+", 38);
-    cout << WARNA_KUNING;                                 // judul submenu (kuning)   
-    cetakJudul("PILIH KOLOM UNTUK UPDATE", 38);
-    cout << WARNA_BIRU;                                   // garis pemisah (biru)  
-    cetakGaris("+", "=", "+", 38);
-    cout << WARNA_KUNING;                                 // pilihan kolom (kuning)
-    cetakBaris("  [1] Ubah Judul", 38);                   // pilihan 1
-    cetakBaris("  [2] Ubah Genre", 38);                   // pilihan 2   
-    cetakBaris("  [3] Ubah Harga", 38);                   // pilihan 3   
-    cetakBaris("  [4] Ubah Durasi", 38);                  // pilihan 4 
-    cetakBaris("  [5] Selesai Update", 38);               // pilihan 5
-    cout << WARNA_BIRU;                                   // border bawah submenu (biru)
-    cetakGaris("+", "=", "+", 38);
-    cout << WARNA_RESET;                                  // reset warna
-}
-
-// Fungsi updateData: mengubah data objek Film berdasarkan id dengan pilihan kolom
-void updateData(vector<Film>& daftar) {
-    int id;                                               // variabel untuk id sasaran (angka)
-
-    while (true) {                                        // ulangi sampai id valid
-        id = inputAngka("Masukkan ID yang akan diupdate : "); // baca id sasaran (angka)
-        if (cekIdValid(id)) {                             // jika id valid (mulai dari 1)
-            break;                                        // lanjut ke langkah berikutnya
-        }
-        cout << teksMerah("ID harus berupa angka mulai dari 1 (1, 2, 3, ...)!\n") << endl; // pesan error
-    }
-
-    // cari index film sasaran (perulangan dijalankan sampai selesai, tanpa break)
-    int idxSasaran = -1;                                              // index sasaran (default belum ketemu)
-    for (int i = 0; i < daftar.size(); i++) {                         // ulangi semua elemen daftar
-        if (daftar[i].getId() == id) {                                // jika id cocok dengan sasaran
-            idxSasaran = i;                                           // simpan index sasaran
+            // FilmAnimasi    : <id> <judul> <harga> <durasi> <genre...> <sutradara>
+            //                   <studio> <teknik> <rating>
+            // simpan objek FilmAnimasi ke wadah berjenis
+            animasi.push_back(FilmAnimasi(id, judul, harga, durasi, genre, sutradara,
+                                          studio, teknik, ratingUsia));  // kirim objek ke wadah animasi
         }
     }
-
-    if (idxSasaran == -1) {                                           // jika tidak ada yang cocok
-        cout << teksMerah("ID tidak ditemukan!") << endl;             // beri tahu user
-        return;                                                       // kembali ke menu utama
-    }
-
-    int pilihan;                                                      // variabel pilihan kolom
-    do {                                                              // ulangi sampai pilih selesai
-        // tampilkan data saat ini milik film yang dicari
-        cout << "\nData film saat ini:\n" << endl;
-        daftar[idxSasaran].tampilkan();                               // tampilkan detail film sasaran
-
-        // tampilkan submenu pilihan kolom yang mau diupdate
-        tampilkanMenuUpdate();
-        pilihan = inputAngka("Pilih kolom (1-5) : ");                 // baca pilihan kolom
-
-        switch (pilihan) {                                            // jalankan sesuai pilihan
-        case 1: {                                                     // ubah judul
-            string judulBaru;                                         // variabel judul baru
-            cout << "Judul baru        : ";                           // minta input judul baru
-            getline(cin, judulBaru);                                  // baca judul baru
-            daftar[idxSasaran].setJudul(judulBaru);                   // ubah judul lewat setter
-            cout << teksHijau("Judul berhasil diubah!") << endl;      // konfirmasi sukses
-            break;                                                    // keluar dari switch
-        }
-        case 2: {                                                     // ubah genre
-            int jumlahGenre;                                          // banyaknya genre baru
-            while (true) {                                            // ulangi sampai jumlah benar
-                jumlahGenre = inputAngka("Jumlah Genre      : ");     // minta jumlah genre
-                if (jumlahGenre >= 1) break;                          // jumlah benar (mulai dari 1)
-                cout << teksMerah("Jumlah genre harus angka mulai dari 1!\n") << endl; // pesan error
-            }
-            vector<string> genreBaru;                                 // list genre baru
-            genreBaru.clear();                                        // kosongkan list sebelum mengisi
-            for (int i = 0; i < jumlahGenre; i++) {                   // minta genre satu per satu
-                while (true) {                                        // ulangi sampai genre ini valid
-                    cout << "Genre ke-" << (i + 1) << "        : ";   // minta genre ke-i
-                    string g;                                         // variabel genre tunggal
-                    getline(cin, g);                                  // baca genre (boleh spasi)
-                    if (!g.empty() && isupper((unsigned char)g[0])) { // jika awal huruf besar
-                        genreBaru.push_back(g);                       // simpan genre
-                        break;                                        // lanjut ke genre berikutnya
-                    }
-                    cout << teksMerah("Genre harus diawali dengan huruf besar (contoh: Action)!'\n") << endl; // pesan error
-                }
-            }
-            daftar[idxSasaran].setGenre(genreBaru);                   // ubah genre lewat setter
-            cout << teksHijau("Genre berhasil diubah!") << endl;      // konfirmasi sukses
-            break;                                                    // keluar dari switch
-        }
-        case 3: {                                                     // ubah harga
-            int hargaBaru;                                            // variabel harga baru
-            hargaBaru = inputAngka("Harga baru        : ");           // baca harga baru
-            daftar[idxSasaran].setHarga(hargaBaru);                   // ubah harga lewat setter
-            cout << teksHijau("Harga berhasil diubah!") << endl;      // konfirmasi sukses
-            break;                                                    // keluar dari switch
-        }
-        case 4: {                                                     // ubah durasi
-            int durasiBaru;                                           // variabel durasi baru
-            durasiBaru = inputAngka("Durasi baru(menit): ");          // baca durasi baru
-            daftar[idxSasaran].setDurasi(durasiBaru);                 // ubah durasi lewat setter
-            cout << teksHijau("Durasi berhasil diubah!") << endl;     // konfirmasi sukses
-            break;                                                    // keluar dari switch
-        }
-        case 5:                                                       // selesai update
-            cout << teksHijau("Update selesai.") << endl;             // pesan selesai
-            break;                                                    // keluar dari switch
-        default:                                                      // pilihan tidak valid
-            cout << teksMerah("Pilihan tidak valid!") << endl;        // pesan salah
-        }
-    } while (pilihan != 5);                                           // ulangi selama belum selesai
-}
-
-// Fungsi hapusData: menghapus objek Film dari daftar berdasarkan id lalu simpan ke file
-void hapusData(vector<Film>& daftar) {
-    int id;                                               // variabel untuk id yang akan dihapus (angka)
-
-    while (true) {                                        // ulangi sampai id valid
-        id = inputAngka("Masukkan ID yang akan dihapus : "); // baca id sasaran (angka)
-        if (cekIdValid(id)) {                             // jika id valid (mulai dari 1)
-            break;                                        // lanjut ke langkah berikutnya
-        }
-        cout << teksMerah("ID harus berupa angka mulai dari 1 (1, 2, 3, ...)!\n") << endl; // pesan error
-    }
-
-    // cari index yang akan dihapus (perulangan dijalankan sampai selesai, tanpa break)
-    int idxHapus = -1;                                    // index sasaran (default belum ketemu)
-    for (int i = 0; i < daftar.size(); i++) {             // ulangi semua elemen daftar
-        if (daftar[i].getId() == id) {                    // jika id cocok dengan sasaran
-            idxHapus = i;                                 // simpan index sasaran
-        }
-    }
-
-    if (idxHapus == -1) {                                 // jika tidak ada yang cocok
-        cout << teksMerah("ID tidak ditemukan!") << endl;            // id tidak ada di daftar
-        return;                                           // kembali ke menu utama
-    }
-
-    daftar.erase(daftar.begin() + idxHapus);              // hapus elemen pada index ke-idxHapus
-    cout << teksHijau("Data berhasil dihapus!") << endl;  // konfirmasi sukses
-}
-
-// Fungsi cariData: mencari satu objek Film berdasarkan id
-void cariData(vector<Film>& daftar) {
-    int id;                                               // variabel untuk id yang dicari (angka)
-
-    while (true) {                                        // ulangi sampai id valid
-        id = inputAngka("Masukkan ID yang dicari : ");    // baca id (angka)
-        if (cekIdValid(id)) {                             // jika id valid (mulai dari 1)
-            break;                                        // lanjut ke langkah berikutnya
-        }
-        cout << teksMerah("ID harus berupa angka mulai dari 1 (1, 2, 3, ...)!\n") << endl; // pesan error
-    }
-
-    // cari film yang cocok (perulangan dijalankan sampai selesai, tanpa break)
-    int idxCari = -1;                                     // index hasil (default belum ketemu)
-    for (int i = 0; i < daftar.size(); i++) {             // ulangi semua elemen daftar
-        if (daftar[i].getId() == id) {                    // jika id cocok
-            idxCari = i;                                  // simpan index hasil
-        }
-    }
-
-    if (idxCari != -1) {                                  // jika ditemukan
-        cout << teksHijau("Film ditemukan:") << endl;     // tampilkan pesan ketemu
-        daftar[idxCari].tampilkan();                      // tampilkan detail film
-    } else {                                              // jika tidak ditemukan
-        cout << teksMerah("Film dengan ID '" + to_string(id) + "' tidak ditemukan!") << endl; // pesan tidak ketemu
-    }
-}
-
-// Fungsi tampilkanMenu: menampilkan daftar menu utama dengan tampilan menarik
-void tampilkanMenu() {
-    cout << endl;                                         // cetak baris kosong
-    cout << WARNA_BIRU;                                   // border atas menu (biru)
-    cetakGaris("+", "=", "+", 36);
-    cout << WARNA_KUNING;                                 // judul menu (kuning)
-    cetakJudul("MENU BIOSKOP", 36);
-    cout << WARNA_BIRU;                                   // garis pemisah (biru)
-    cetakGaris("+", "=", "+", 36);
-    cout << WARNA_KUNING;                                 // daftar menu (kuning)
-    cetakBaris("  [1] Tambah Data Film", 36);             // menu tambah
-    cetakBaris("  [2] Tampilkan Data Film", 36);          // menu tampil
-    cetakBaris("  [3] Update Data Film", 36);             // menu update
-    cetakBaris("  [4] Hapus Data Film", 36);              // menu hapus
-    cetakBaris("  [5] Cari Data Film", 36);               // menu cari
-    cetakBaris("  [6] Keluar", 36);                       // menu keluar
-    cout << WARNA_BIRU;                                   // border bawah menu (biru)
-    cetakGaris("+", "=", "+", 36);
-    cout << WARNA_RESET;                                  // reset warna
+    cout << teksHijau("Data berhasil ditambahkan!") << endl << endl;  // pesan sukses hijau
 }
 
 int main() {
-    vector<Film> daftarFilm;            // buat vector kosong untuk menyimpan film
-    int pilihan;                        // variabel pilihan menu
+    signal(SIGINT, tanganiCtrlC);      // tangani Ctrl+C dengan pesan berhenti 
 
-    do {                                // ulangi tampilan menu
-        tampilkanMenu();                // tampilkan daftar menu
-        pilihan = inputAngka("Pilih menu (1-6) : ");      // baca pilihan dengan error handling
+    vector<Film>        daftarBiasa;   // wadah film biasa (level 1)
+    vector<FilmBioskop> daftarBioskop; // wadah film bioskop (level 2)
+    vector<FilmAnimasi> daftarAnimasi; // wadah film animasi (level 3)
 
-        switch (pilihan) {              // pilih aksi berdasarkan angka pilihan
-        case 1:                         // jika memilih 1
-            tambahData(daftarFilm);     // panggil fungsi tambahData
-            break;                      // keluar dari switch
-        case 2:                         // jika memilih 2
-            tampilkanData(daftarFilm);  // panggil fungsi tampilkanData
-            break;                      // keluar dari switch
-        case 3:                         // jika memilih 3
-            updateData(daftarFilm);     // panggil fungsi updateData
-            break;                      // keluar dari switch
-        case 4:                         // jika memilih 4
-            hapusData(daftarFilm);      // panggil fungsi hapusData
-            break;                      // keluar dari switch
-        case 5:                         // jika memilih 5
-            cariData(daftarFilm);       // panggil fungsi cariData
-            break;                      // keluar dari switch
-        case 6:                         // jika memilih 6
-            cout << teksHijau("Program selesai. Terima kasih!") << endl; // pesan keluar
-            break;                      // keluar dari switch
-        default:                        // jika pilihan bukan 1-6
-            cout << teksMerah("Pilihan tidak valid!") << endl;  // pesan pilihan salah
-        }
-    } while (pilihan != 6);             // ulangi selama belum memilih 6 (keluar)
+    daftarBiasa.push_back(Film(1, "Sejarah", 25000));              // film biasa: data awal 1
+    // bioskop: Kimi No Nawa
+    daftarBioskop.push_back(FilmBioskop(2, "Kimi No Nawa", 45000, 115, {"Drama", "Romance"}, "Sari"));  // data awal 2 (bioskop)
+    // bioskop: Ghost In The Cell
+    daftarBioskop.push_back(FilmBioskop(3, "Ghost In The Cell", 40000, 95, {"Horor"}, "Rina"));  // data awal 3 (bioskop)
+    // animasi: Konosuba (StudioBiru, 3D)
+    daftarAnimasi.push_back(FilmAnimasi(4, "Konosuba", 50000, 105, {"Aksi", "Petualangan"}, "Andi", "StudioBiru", "3D", "SU"));  // data awal 4 (animasi)
+    // animasi: Dragon Slayer (StudioUngu, 2D)
+    daftarAnimasi.push_back(FilmAnimasi(5, "Dragon Slayer", 52000, 98, {"Fantasi"}, "Dewi", "StudioUngu", "2D", "SU"));  // data awal 5 (animasi)
 
-    return 0;                    
+    // tampilkan data awal dalam satu tabel
+    tampilkanTabel("DAFTAR FILM AWAL", daftarBiasa, daftarBioskop, daftarAnimasi);  // tampilkan 5 data awal
+
+    // ===== TERIMA INPUT USER UNTUK MENAMBAH DATA =====
+    // minta jumlah data yang akan ditambahkan
+    int n = inputAngka("Masukkan jumlah data yang ingin ditambahkan", 1,
+                       "Input harus lebih dari 0!");
+    for (int i = 1; i <= n; i++) {                                // tambahkan data sebanyak n
+        // penanda nomor urut data
+        cout << WARNA_KUNING << "--- Data ke-" << i << " ---" << WARNA_RESET << endl;  // penanda nomor data ke-i
+        tambahData(daftarBiasa, daftarBioskop, daftarAnimasi);    // tambah satu objek film
+    }
+
+    // ===== TAMPILKAN SELURUH DATA SETELAH PENAMBAHAN =====
+    tampilkanTabel("DAFTAR FILM SETELAH PENAMBAHAN", daftarBiasa, daftarBioskop, daftarAnimasi);  // tampilkan seluruh data terbaru
+    cout << teksHijau("Program selesai. Terima kasih!") << endl;  // salam penutup program
+
+    return 0;  // program sukses selesai
 }
