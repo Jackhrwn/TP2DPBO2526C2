@@ -1,7 +1,7 @@
 2
 2
 6
-Suhu
+Cukiman
 42000
 120
 2
@@ -10,7 +10,7 @@ Action
 Budi
 3
 7
-Robot
+Robo
 51000
 100
 2
