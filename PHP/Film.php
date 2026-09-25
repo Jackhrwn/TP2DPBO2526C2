@@ -5,7 +5,7 @@ class Film {         // class dasar (level 1)
     private $judul;  // judul film
     private $harga;  // harga tiket
 
-    // __construct: Konstruktor class Film dengan nilai awal opsional.
+    // __construct: Konstruktor class Film 
     public function __construct($id = 0, $judul = "", $harga = 0) {  // konstruktor (nilai awal)
         $this->id = $id;                                             // simpan id
         $this->judul = $judul;                                       // simpan judul

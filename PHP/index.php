@@ -30,7 +30,7 @@ function e($teks) {                                                    // amanka
     return htmlspecialchars((string)$teks, ENT_QUOTES, "UTF-8");       // ubah karakter berbahaya
 }
 
-// ====== Nama kolom tabel (semua atribut dari 3 class + fotoProduk PHP) ======
+// ====== Nama kolom tabel (semua atribut dari 3 class + fotoProduk) ======
 $KOLOM = [
     "ID", "Judul", "Harga", "Durasi", "Genre",
     "Sutradara", "Studio", "Teknik Animasi", "Rating Usia", "Foto Produk"
@@ -47,7 +47,7 @@ if (!isset($_SESSION["biasa"]) || isset($_GET["reset"])) {
     $_SESSION["biasa"]   = [];
     $_SESSION["bioskop"] = [];
     $_SESSION["animasi"] = [];
-    $_SESSION["biasa"][]   = new Film(1, "Sejarah", 25000);                                    // film biasa: data awal 1
+    $_SESSION["biasa"][]   = new Film(1, "Sejarah", 25000);                                                  // film biasa: data awal 1
     $_SESSION["bioskop"][] = new FilmBioskop(2, "Kimi No Nawa", 45000, 115, ["Drama", "Romance"], "Sari");   // data awal 2 (bioskop)
     $_SESSION["bioskop"][] = new FilmBioskop(3, "Ghost In The Cell", 40000, 95, ["Horor"], "Rina");          // data awal 3 (bioskop)
     $_SESSION["animasi"][] = new FilmAnimasi(4, "Kimetsu No Yaiba", 50000, 105, ["Aksi", "Petualangan"], "Andi",
